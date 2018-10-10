@@ -2,9 +2,9 @@ package biregister
 
 import (
 	//	"fmt"
-	"time"
 	//	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -27,6 +27,7 @@ func TestWatcherBase(t *testing.T) {
 	assert.Nil(t, err)
 	assert.NotNil(t, r2)
 
+	time.Sleep(time.Second)
 	<-r1.Changes()
 	assert.Equal(t, v1, r1.GetValueByName(name1))
 	<-r1.Changes()
