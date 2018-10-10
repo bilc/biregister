@@ -2,7 +2,6 @@ package biregister
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -48,10 +47,10 @@ func NewWatcher(etcdServs []string, prefix string, ttl int64) (w *Watcher, err e
 		closeChan:  make(chan struct{}, DefaultChanSize),
 		changeChan: make(chan struct{}, DefaultChanSize),
 	}
-	_, err = w.update()
-	if err != nil {
-		return nil, err
-	}
+	//	_, err = w.update()
+	//	if err != nil {
+	//		return nil, err
+	//	}
 	go w.updateLoop()
 	return w, nil
 }
@@ -77,6 +76,18 @@ func (w *Watcher) GetValues() []string {
 		ret = append(ret, j)
 	}
 	return ret
+}
+
+func (w *Watcher) GetValueByName(name string) string {
+	names := w.GetNames()
+	w.cacheMutex.Lock()
+	defer w.cacheMutex.Unlock()
+	for i, n := range names {
+		if n == name {
+			return w.values[i]
+		}
+	}
+	return ""
 }
 
 func (w *Watcher) GetMasterValue() string {
@@ -144,14 +155,13 @@ func (w *Watcher) updateLoop() {
 			close(w.closeChan)
 			return
 		}
+		//fmt.Printf("!!!etcdvalues:%p,%v \n", w, resp)
 
 		var tmp struct{}
 		select {
 		case w.changeChan <- tmp:
 		default:
 		}
-
-		fmt.Printf("watcher %v %v %v\n", w.keys, w.values, time.Now())
 
 		// wait next change
 		watcher := clientv3.NewWatcher(w.etcdCli)

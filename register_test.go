@@ -10,7 +10,6 @@ import (
 )
 
 func TestOneRegistry(t *testing.T) {
-	return
 	cmd := exec.Command("etcd")
 	cmd.Start()
 	time.Sleep(time.Second)
@@ -50,7 +49,6 @@ func TestTwoRegistry(t *testing.T) {
 		}
 	}()
 
-	fmt.Println("111")
 	time.Sleep(time.Second)
 	assert.True(t, r1.AmIMaster())
 	assert.False(t, r2.AmIMaster())

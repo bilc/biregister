@@ -68,33 +68,28 @@ func (r *Register) registerMyself() error {
 	}()
 
 	// put key(newest reversion) to etcd
-	count := 0
-	for count = 0; count < 10; count++ {
-		key := r.prefix + r.myName
-		if r.myName == "" {
-			resp, err := r.etcdCli.Get(context.Background(), "/")
-			if err != nil {
-				return err
-			}
-			key = fmt.Sprintf("%s/%020d", r.prefix, resp.Header.Revision+1)
-		}
-
-		tresp, err := r.etcdCli.Txn(context.Background()).
-			If(clientv3.Compare(clientv3.CreateRevision(key), "=", 0)).
-			Then(clientv3.OpPut(key, r.myValue, clientv3.WithLease(leaseID))).
-			Else().
-			Commit()
+	key := r.prefix + r.myName
+	if r.myName == "" {
+		resp, err := r.etcdCli.Get(context.Background(), "/")
 		if err != nil {
 			return err
 		}
-		if tresp.Succeeded {
-			r.myKey = key
-			r.myName = key[len(r.prefix):]
-			break
-		}
+		key = fmt.Sprintf("%s/%020d", r.prefix, resp.Header.Revision+1)
 	}
-	if count == 10 {
-		return fmt.Errorf("register %v error: retry times > 10 ", r.prefix+r.myName)
+
+	tresp, err := r.etcdCli.Txn(context.Background()).
+		If(clientv3.Compare(clientv3.CreateRevision(key), "=", 0)).
+		Then(clientv3.OpPut(key, r.myValue, clientv3.WithLease(leaseID))).
+		Else().
+		Commit()
+	if err != nil {
+		return err
 	}
-	return nil
+	if tresp.Succeeded {
+		r.myKey = key
+		r.myName = key[len(r.prefix):]
+		return nil
+	} else {
+		return fmt.Errorf("resp %v", tresp)
+	}
 }
