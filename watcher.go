@@ -55,6 +55,10 @@ func NewWatcher(etcdServs []string, prefix string, ttl int64) (w *Watcher, err e
 	return w, nil
 }
 
+func (w *Watcher) EtcdClient() *clientv3.Client {
+	return w.etcdCli
+}
+
 func (w *Watcher) Stoped() <-chan struct{} {
 	return w.closeChan
 }
