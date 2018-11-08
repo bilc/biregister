@@ -8,7 +8,19 @@ import (
 	"github.com/coreos/etcd/clientv3"
 )
 
-type Watcher struct {
+type Watcher interface {
+	Changes() <-chan struct{}
+	GetValues() []string
+	GetValueByName(name string) string
+	GetMasterKey() string
+	GetMasterValue() string
+	GetNames() []string
+	Stoped() <-chan struct{}
+	Stop()
+	EtcdClient() *clientv3.Client
+}
+
+type watcher struct {
 	etcdServers []string
 	ttl         int64
 	prefix      string
@@ -27,7 +39,7 @@ var DefaultKeepAlive time.Duration = 2 * time.Second
 var DefaultTimeout time.Duration = 5 * time.Second
 var DefaultChanSize int = 100
 
-func NewWatcher(etcdServs []string, prefix string, ttl int64) (w *Watcher, err error) {
+func NewWatcher(etcdServs []string, prefix string, ttl int64) (w *watcher, err error) {
 
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:            etcdServs,
@@ -38,7 +50,7 @@ func NewWatcher(etcdServs []string, prefix string, ttl int64) (w *Watcher, err e
 	if err != nil {
 		return nil, err
 	}
-	w = &Watcher{etcdServers: etcdServs,
+	w = &watcher{etcdServers: etcdServs,
 		ttl:        ttl,
 		prefix:     prefix,
 		etcdCli:    cli,
@@ -55,24 +67,24 @@ func NewWatcher(etcdServs []string, prefix string, ttl int64) (w *Watcher, err e
 	return w, nil
 }
 
-func (w *Watcher) EtcdClient() *clientv3.Client {
+func (w *watcher) EtcdClient() *clientv3.Client {
 	return w.etcdCli
 }
 
-func (w *Watcher) Stoped() <-chan struct{} {
+func (w *watcher) Stoped() <-chan struct{} {
 	return w.closeChan
 }
 
-func (w *Watcher) Stop() {
+func (w *watcher) Stop() {
 	w.etcdCli.Close()
 	close(w.closeChan)
 }
 
-func (w *Watcher) Changes() <-chan struct{} {
+func (w *watcher) Changes() <-chan struct{} {
 	return w.changeChan
 }
 
-func (w *Watcher) GetValues() []string {
+func (w *watcher) GetValues() []string {
 	w.cacheMutex.Lock()
 	defer w.cacheMutex.Unlock()
 	ret := make([]string, 0, len(w.values))
@@ -82,7 +94,7 @@ func (w *Watcher) GetValues() []string {
 	return ret
 }
 
-func (w *Watcher) GetValueByName(name string) string {
+func (w *watcher) GetValueByName(name string) string {
 	names := w.GetNames()
 	w.cacheMutex.Lock()
 	defer w.cacheMutex.Unlock()
@@ -94,7 +106,7 @@ func (w *Watcher) GetValueByName(name string) string {
 	return ""
 }
 
-func (w *Watcher) GetMasterValue() string {
+func (w *watcher) GetMasterValue() string {
 	w.cacheMutex.Lock()
 	defer w.cacheMutex.Unlock()
 	if len(w.values) != 0 {
@@ -104,7 +116,7 @@ func (w *Watcher) GetMasterValue() string {
 	}
 }
 
-func (w *Watcher) GetMasterKey() string {
+func (w *watcher) GetMasterKey() string {
 	w.cacheMutex.Lock()
 	defer w.cacheMutex.Unlock()
 	if len(w.keys) != 0 {
@@ -114,7 +126,7 @@ func (w *Watcher) GetMasterKey() string {
 	}
 }
 
-func (w *Watcher) GetNames() []string {
+func (w *watcher) GetNames() []string {
 	ret := make([]string, 0, len(w.keys))
 	w.cacheMutex.Lock()
 	defer w.cacheMutex.Unlock()
@@ -124,7 +136,7 @@ func (w *Watcher) GetNames() []string {
 	return ret
 }
 
-func (w *Watcher) update() (resp *clientv3.GetResponse, err error) {
+func (w *watcher) update() (resp *clientv3.GetResponse, err error) {
 	// get all member
 	begin := time.Now()
 	for {
@@ -152,7 +164,7 @@ func (w *Watcher) update() (resp *clientv3.GetResponse, err error) {
 	return resp, nil
 }
 
-func (w *Watcher) updateLoop() {
+func (w *watcher) updateLoop() {
 	for {
 		resp, err := w.update()
 		if err != nil {

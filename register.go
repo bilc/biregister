@@ -7,43 +7,50 @@ import (
 	"github.com/coreos/etcd/clientv3"
 )
 
-type Register struct {
-	*Watcher
+type Register interface {
+	MyKey() string
+	MyName() string
+	AmIMaster() bool
+	Watcher
+}
+
+type register struct {
+	*watcher
 
 	myName  string
 	myKey   string
 	myValue string
 }
 
-func NewRegister(etcdServs []string, prefix string, value string, ttl int64) (*Register, error) {
+func NewRegister(etcdServs []string, prefix string, value string, ttl int64) (*register, error) {
 	return NewRegisterWithName(etcdServs, prefix, "", value, ttl)
 }
 
-func NewRegisterWithName(etcdServs []string, prefix string, name, value string, ttl int64) (*Register, error) {
+func NewRegisterWithName(etcdServs []string, prefix string, name, value string, ttl int64) (*register, error) {
 	w, err := NewWatcher(etcdServs, prefix, ttl)
 	if err != nil {
 		return nil, err
 	}
-	r := &Register{Watcher: w, myName: name, myValue: value}
+	r := &register{watcher: w, myName: name, myValue: value}
 	if err := r.registerMyself(); err != nil {
 		return nil, err
 	}
 	return r, nil
 }
 
-func (r *Register) MyKey() string {
+func (r *register) MyKey() string {
 	return r.myKey
 }
 
-func (r *Register) MyName() string {
+func (r *register) MyName() string {
 	return r.myName
 }
 
-func (r *Register) AmIMaster() bool {
+func (r *register) AmIMaster() bool {
 	return r.myKey == r.GetMasterKey()
 }
 
-func (r *Register) registerMyself() error {
+func (r *register) registerMyself() error {
 	// create lease
 	var leaseID clientv3.LeaseID
 	resp, err := r.etcdCli.Grant(context.Background(), r.ttl)
