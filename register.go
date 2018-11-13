@@ -1,3 +1,9 @@
+/**********************************************************
+ * Author        : blc
+ * Last modified : 2018-11-13 09:55
+ * Filename      : register.go
+ * Description   : register For living report
+ * *******************************************************/
 package biregister
 
 import (
@@ -10,7 +16,7 @@ import (
 type Register interface {
 	MyKey() string
 	MyName() string
-	AmIMaster() bool
+	AmILeader() bool
 	Watcher
 }
 
@@ -22,11 +28,11 @@ type register struct {
 	myValue string
 }
 
-func NewRegister(etcdServs []string, prefix string, value string, ttl int64) (*register, error) {
-	return NewRegisterWithName(etcdServs, prefix, "", value, ttl)
+func NewRegisterNoName(etcdServs []string, prefix string, value string, ttl int64) (*register, error) {
+	return NewRegister(etcdServs, prefix, "", value, ttl)
 }
 
-func NewRegisterWithName(etcdServs []string, prefix string, name, value string, ttl int64) (*register, error) {
+func NewRegister(etcdServs []string, prefix string, name, value string, ttl int64) (*register, error) {
 	w, err := NewWatcher(etcdServs, prefix, ttl)
 	if err != nil {
 		return nil, err
@@ -46,8 +52,9 @@ func (r *register) MyName() string {
 	return r.myName
 }
 
-func (r *register) AmIMaster() bool {
-	return r.myKey == r.GetMasterKey()
+func (r *register) AmILeader() bool {
+	name, _ := r.GetLeader()
+	return r.myName == name
 }
 
 func (r *register) registerMyself() error {
