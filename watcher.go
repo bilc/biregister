@@ -66,7 +66,7 @@ type content struct {
 
 var DefaultKeepAlive time.Duration = 2 * time.Second
 var DefaultTimeout time.Duration = 5 * time.Second
-var DefaultChanSize int = 100
+var DefaultChanSize int = 10000
 
 func NewWatcher(etcdServs []string, prefix string, ttl int64) (w *watcher, err error) {
 
@@ -188,7 +188,10 @@ func (w *watcher) updateLoop() error {
 							w.masterCreateRevision = math.MaxInt64
 						}
 					}
-					w.changeChan <- Change{name, e.Type.String()}
+					select {
+					case w.changeChan <- Change{name, e.Type.String()}:
+					default:
+					}
 				}
 
 				if w.masterName == "" {
@@ -231,7 +234,13 @@ func (w *watcher) update() (resp *clientv3.GetResponse, err error) {
 		w.masterName = string(resp.Kvs[0].Key[len(w.prefix):])
 	}
 	for _, j := range resp.Kvs {
-		w.all[string(j.Key[len(w.prefix):])] = content{string(j.Value), j.CreateRevision}
+		name := string(j.Key[len(w.prefix):])
+		w.all[name] = content{string(j.Value), j.CreateRevision}
+
+		select {
+		case w.changeChan <- Change{name, mvccpb.PUT.String()}:
+		default:
+		}
 	}
 	w.cacheMutex.Unlock()
 	return resp, nil
