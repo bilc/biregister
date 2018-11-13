@@ -27,7 +27,7 @@ type Change struct {
  */
 type Watcher interface {
 	//cache interface
-	GetAll()
+	GetAll() map[string]string
 	GetNames() []string
 	GetValues() []string
 	GetValueByName(name string) string
